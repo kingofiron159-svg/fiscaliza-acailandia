@@ -34,7 +34,10 @@ jobs:
           key: cache-apis-${{ github.run_id }}
           restore-keys: cache-apis-
 
+      # Em push (mudança de código) publica os dados já salvos no repositório, sem esperar a coleta.
+      # A coleta completa roda no agendamento diário e no botão "Run workflow".
       - name: Coletar dados públicos
+        if: github.event_name != 'push'
         run: python coletar.py || echo "::warning::Coleta parcial - algumas consultas falharam"
 
       - name: Conferir se os dados foram gerados
