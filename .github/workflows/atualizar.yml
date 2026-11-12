@@ -1,0 +1,55 @@
+name: Atualizar dados e publicar site
+
+on:
+  schedule:
+    - cron: "0 9 * * *"   # todo dia às 06h (horário de Brasília)
+  workflow_dispatch:       # botão "Run workflow" na aba Actions
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  atualizar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Reaproveita as respostas já baixadas, para não consultar tudo de novo a cada dia
+      - uses: actions/cache@v4
+        with:
+          path: cache
+          key: cache-apis-${{ github.run_id }}
+          restore-keys: cache-apis-
+
+      - name: Coletar dados públicos
+        run: python coletar.py || echo "::warning::Coleta parcial - algumas consultas falharam"
+
+      - name: Conferir se os dados foram gerados
+        run: test -s site/dados/dados.json
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  publicar:
+    needs: atualizar
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

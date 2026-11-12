@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fiscaliza Açailândia</title>
+<meta name="description" content="Projeto cidadão independente que organiza dados públicos de contratos e gastos da Prefeitura de Açailândia (MA) e aponta pontos de atenção.">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+<script src="glossario.js" defer></script>
+<script src="app.js" defer></script>
+</head>
+<body>
+<header class="topo">
+  <div class="topo-in">
+    <div>
+      <h1>Fiscaliza <span>Açailândia</span></h1>
+      <p class="sub">Contratos e gastos públicos do município, organizados a partir de dados oficiais abertos.</p>
+    </div>
+    <label class="filtro-ano">Ano
+      <select id="ano"></select>
+    </label>
+  </div>
+  <nav class="abas" id="abas">
+    <button data-aba="inicio" class="ativa">Início</button>
+    <button data-aba="alertas">Alertas <span class="badge" id="badge-alertas"></span></button>
+    <button data-aba="contratos">Contratos</button>
+    <button data-aba="fornecedores">Fornecedores</button>
+    <button data-aba="precos">Preços</button>
+    <button data-aba="orcamento">Orçamento</button>
+    <button data-aba="federal">Verbas e emendas</button>
+    <button data-aba="glossario">Glossário</button>
+    <button data-aba="sobre">Sobre</button>
+  </nav>
+</header>
+
+<div class="aviso">
+  <strong>Projeto cidadão independente</strong>, sem vínculo com a Prefeitura. Os dados vêm de fontes oficiais
+  (PNCP, Tesouro Nacional e Receita Federal). Alertas são indícios automáticos para orientar a fiscalização,
+  <strong>não acusações</strong>.
+</div>
+
+<main id="conteudo">
+  <p class="carregando" id="carregando">Carregando dados…</p>
+
+  <section id="aba-inicio" class="aba" hidden>
+    <div class="kpis" id="kpis"></div>
+    <div class="grade2">
+      <div class="cartao"><h2>Valor contratado por mês</h2><div class="graf"><canvas id="g-mes"></canvas></div></div>
+      <div class="cartao"><h2>Com e sem licitação <button class="ajuda" data-termo="licitacao" aria-label="O que é isso?">?</button></h2><div class="graf"><canvas id="g-modalidade"></canvas></div>
+        <p class="nota" id="nota-direta"></p></div>
+    </div>
+    <div class="grade2">
+      <div class="cartao"><h2>Quem mais contratou (secretarias)</h2><div id="top-unidades"></div></div>
+      <div class="cartao"><h2>Quem mais recebeu (fornecedores)</h2><div id="top-fornecedores"></div></div>
+    </div>
+  </section>
+
+  <section id="aba-alertas" class="aba" hidden>
+    <div class="cartao intro">
+      <h2>Pontos de atenção</h2>
+      <p>Regras automáticas aplicadas a todos os contratos. Cada alerta explica o critério usado.
+      Um alerta pode ter explicação legítima: use-o como ponto de partida para pedir informações,
+      nunca como conclusão. <a href="#" data-ir="sobre">Como denunciar</a>.</p>
+      <div class="filtros">
+        <select id="f-gravidade"><option value="">Todas as gravidades</option><option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option></select>
+        <select id="f-tipo"><option value="">Todos os tipos</option></select>
+      </div>
+    </div>
+    <div id="lista-alertas"></div>
+  </section>
+
+  <section id="aba-contratos" class="aba" hidden>
+    <div class="cartao">
+      <div class="filtros">
+        <input id="busca-contratos" type="search" placeholder="Buscar por objeto, fornecedor, CNPJ…">
+        <select id="f-unidade"><option value="">Todas as secretarias</option></select>
+        <select id="f-modalidade"><option value="">Todas as modalidades</option></select>
+      </div>
+      <p class="nota" id="resumo-contratos"></p>
+      <div class="tabela-rolagem"><table class="tabela" id="tab-contratos">
+        <thead><tr><th data-ord="assinatura">Data</th><th data-ord="fornecedor">Fornecedor</th><th>Objeto</th><th data-ord="unidade">Secretaria</th><th data-ord="modalidade">Modalidade</th><th data-ord="valor" class="num">Valor</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <div class="paginacao" id="pag-contratos"></div>
+    </div>
+  </section>
+
+  <section id="aba-fornecedores" class="aba" hidden>
+    <div class="cartao">
+      <div class="filtros"><input id="busca-fornecedores" type="search" placeholder="Buscar fornecedor ou CNPJ…"></div>
+      <div class="tabela-rolagem"><table class="tabela" id="tab-fornecedores">
+        <thead><tr><th>Fornecedor</th><th>CNPJ/CPF</th><th>Aberta em</th><th>Situação</th><th class="num">Contratos</th><th class="num">Total</th><th class="num">Alertas</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <div class="paginacao" id="pag-fornecedores"></div>
+    </div>
+  </section>
+
+  <section id="aba-precos" class="aba" hidden>
+    <div class="cartao intro">
+      <h2>Quanto a Prefeitura paga por cada item <button class="ajuda" data-termo="homologado" aria-label="O que é isso?">?</button></h2>
+      <p>Busque um produto ou serviço (por exemplo <em>gasolina</em>, <em>cimento</em>, <em>merenda</em>, <em>pneu</em>)
+      e compare o preço unitário pago com o que você encontra no comércio. "Estimado" é o preço que a própria
+      Prefeitura pesquisou antes da licitação; "homologado" é o preço final do vencedor.</p>
+      <div class="filtros">
+        <input id="busca-itens" type="search" placeholder="Buscar item: gasolina, cimento, notebook…">
+        <select id="f-itens-res"><option value="1">Só itens com vencedor</option><option value="">Todos os itens</option></select>
+      </div>
+      <p class="nota" id="resumo-itens">Carregando itens…</p>
+      <div class="tabela-rolagem"><table class="tabela" id="tab-itens">
+        <thead><tr><th>Item</th><th>Unidade</th><th class="num">Qtd.</th><th class="num">Unit. estimado</th><th class="num">Unit. homologado</th><th class="num">Total</th><th>Vencedor</th><th>Data</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <div class="paginacao" id="pag-itens"></div>
+    </div>
+    <div class="cartao">
+      <h2>Licitações com menor desconto <button class="ajuda" data-termo="estimado" aria-label="O que é isso?">?</button></h2>
+      <p class="nota">Pregões e concorrências acima de R$ 100 mil julgados por menor preço, ordenados pelo menor desconto
+      entre o preço estimado e o homologado. Desconto perto de zero pode indicar pouca concorrência.
+      <span id="nota-desconto"></span></p>
+      <div class="tabela-rolagem"><table class="tabela sem-clique" id="tab-descontos">
+        <thead><tr><th>Licitação</th><th>Secretaria</th><th class="num">Estimado</th><th class="num">Homologado</th><th class="num">Desconto</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+    <div class="cartao">
+      <h2>Mesmo item, preços diferentes <button class="ajuda" data-termo="sobrepreco" aria-label="O que é isso?">?</button></h2>
+      <p class="nota">Itens com a mesma descrição e unidade, comprados no mesmo ano em licitações diferentes, com diferença de
+      50% ou mais no preço unitário. Pode haver explicação (marca, especificação, frete, quantidade), mas vale perguntar.</p>
+      <div class="tabela-rolagem"><table class="tabela sem-clique" id="tab-variacoes">
+        <thead><tr><th>Item</th><th>Ano</th><th class="num">Menor preço</th><th class="num">Maior preço</th><th class="num">Diferença</th><th class="num">Custo a mais</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <section id="aba-orcamento" class="aba" hidden>
+    <div class="cartao">
+      <h2>Saúde financeira da Prefeitura</h2>
+      <p class="nota" id="nota-financas"></p>
+      <div class="indicadores" id="indicadores"></div>
+      <div class="tabela-rolagem" style="margin-top:14px"><table class="tabela sem-clique" id="tab-financas"><thead></thead><tbody></tbody></table></div>
+    </div>
+    <div class="cartao">
+      <h2>Onde o dinheiro foi gasto (por área) <button class="ajuda" data-termo="liquidacao" aria-label="O que é isso?">?</button></h2>
+      <p class="nota" id="nota-orcamento"></p>
+      <div class="graf alto"><canvas id="g-funcoes"></canvas></div>
+    </div>
+    <div class="cartao">
+      <h2>Gasto com pessoal × Lei de Responsabilidade Fiscal <button class="ajuda" data-termo="lrf" aria-label="O que é isso?">?</button></h2>
+      <p class="nota">Percentual da Receita Corrente Líquida gasto com pessoal pelo Executivo. A LRF fixa
+      alerta em 48,6%, limite prudencial em 51,3% e máximo em 54%.</p>
+      <div class="graf"><canvas id="g-pessoal"></canvas></div>
+    </div>
+  </section>
+
+  <section id="aba-federal" class="aba" hidden>
+    <div class="cartao">
+      <h2>De onde vem o dinheiro da Prefeitura <button class="ajuda" data-termo="rcl" aria-label="O que é isso?">?</button></h2>
+      <p class="nota" id="nota-receitas"></p>
+      <div class="graf"><canvas id="g-receitas"></canvas></div>
+    </div>
+    <div class="cartao intro">
+      <h2>Emendas parlamentares <button class="ajuda" data-termo="emenda" aria-label="O que é isso?">?</button></h2>
+      <p>Dinheiro do orçamento federal indicado por deputados e senadores e pago à Prefeitura e aos fundos
+      municipais. Saber quem mandou, quanto e para quê permite cobrar onde o recurso foi aplicado.
+      Os valores são os <strong>efetivamente pagos</strong>, pelo mês do pagamento.</p>
+    </div>
+    <div class="kpis" id="kpis-emendas"></div>
+    <div class="grade2">
+      <div class="cartao"><h2>Recebido por ano</h2><div class="graf"><canvas id="g-emendas-ano"></canvas></div></div>
+      <div class="cartao"><h2>Quem mais destinou recursos</h2><div id="top-autores"></div></div>
+    </div>
+    <div class="cartao" style="margin-top:16px">
+      <h2>Repasses recebidos pela Prefeitura e fundos municipais</h2>
+      <div class="filtros"><input id="busca-emendas" type="search" placeholder="Buscar por parlamentar, área, ação…"></div>
+      <p class="nota" id="resumo-emendas"></p>
+      <div class="tabela-rolagem"><table class="tabela sem-clique" id="tab-emendas">
+        <thead><tr><th>Mês</th><th>Autor da emenda</th><th>Tipo</th><th>Quem recebeu</th><th>Área e finalidade</th><th class="num">Valor pago</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <div class="paginacao" id="pag-emendas"></div>
+    </div>
+    <div class="cartao">
+      <h2>Convênios firmados com recursos de emendas <button class="ajuda" data-termo="convenio" aria-label="O que é isso?">?</button></h2>
+      <p class="nota">Obras e compras com objeto definido. Vale conferir no local se o que foi conveniado existe e está pronto.</p>
+      <div class="tabela-rolagem"><table class="tabela sem-clique" id="tab-convenios">
+        <thead><tr><th>Publicação</th><th>Objeto</th><th>Área</th><th>Convenente</th><th class="num">Valor</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+    <div class="cartao">
+      <h2>Empresas e entidades da cidade pagas com emendas</h2>
+      <p class="nota">Empresas e associações <em>sediadas</em> em Açailândia que receberam pagamentos de emendas diretamente
+      do governo federal. O serviço pode ter sido prestado em outra cidade. Pessoas físicas não são listadas.</p>
+      <div id="top-privados"></div>
+    </div>
+  </section>
+
+  <section id="aba-glossario" class="aba" hidden>
+    <div class="cartao intro">
+      <h2>Glossário</h2>
+      <p>Os termos usados neste site, explicados sem juridiquês. Em qualquer página, o botão
+      <span class="ajuda" aria-hidden="true">?</span> abre a explicação do termo ao lado.</p>
+      <div class="filtros"><input id="busca-glossario" type="search" placeholder="Buscar termo: dispensa, empenho, emenda…"></div>
+    </div>
+    <div id="lista-glossario"></div>
+  </section>
+
+  <section id="aba-sobre" class="aba" hidden>
+    <div class="cartao texto">
+      <h2>Sobre o projeto</h2>
+      <p>Fiscalizar o uso do dinheiro público é direito e dever de todo cidadão (Constituição, art. 5º, XXXIII e
+      art. 74, §2º; Lei de Acesso à Informação, Lei 12.527/2011). Este site reúne em um só lugar dados que já são
+      públicos, mas espalhados e difíceis de cruzar.</p>
+
+      <h3>De onde vêm os dados</h3>
+      <ul>
+        <li><strong>Contratos e licitações:</strong> <a href="https://pncp.gov.br" target="_blank" rel="noopener">Portal Nacional de Contratações Públicas (PNCP)</a>, onde os municípios são obrigados a publicar pela Lei 14.133/2021.</li>
+        <li><strong>Orçamento e pessoal:</strong> <a href="https://siconfi.tesouro.gov.br" target="_blank" rel="noopener">SICONFI / Tesouro Nacional</a> (RREO e RGF entregues pela própria Prefeitura).</li>
+        <li><strong>Dados das empresas:</strong> base pública de CNPJ da Receita Federal.</li>
+        <li><strong>Emendas parlamentares:</strong> <a href="https://portaldatransparencia.gov.br/emendas" target="_blank" rel="noopener">Portal da Transparência (CGU)</a>, com dados desde 2016.</li>
+        <li><strong>Empresas punidas:</strong> cadastros <a href="https://portaldatransparencia.gov.br/sancoes" target="_blank" rel="noopener">CEIS e CNEP da Controladoria-Geral da União</a>, atualizados diariamente.</li>
+      </ul>
+
+      <h3>Limitações importantes</h3>
+      <ul>
+        <li>Só aparecem contratos que a Prefeitura publicou no PNCP. Contratos não publicados também são um problema, e podem ser cobrados.</li>
+        <li>O valor mostrado é o <em>valor global do contrato</em>, não o que já foi efetivamente pago.</li>
+        <li>Os preços por item vêm do que a Prefeitura cadastrou no PNCP; descrições genéricas ou unidades erradas na fonte distorcem comparações.</li>
+        <li>Aditivos, que aumentam valor e prazo, ainda não são analisados.</li>
+        <li>Os cadastros de empresas punidas trazem as sanções registradas hoje; punições já encerradas e retiradas do cadastro não aparecem. Só empresas (CNPJ) são verificadas, não pessoas físicas.</li>
+        <li>Os dados de empresas refletem a situação atual na Receita, não necessariamente a da data do contrato.</li>
+        <li>Erros de digitação nas fontes oficiais aparecem aqui como estão.</li>
+      </ul>
+
+      <h3 id="denunciar">Encontrou algo estranho? Como agir</h3>
+      <ol>
+        <li>Abra o contrato no PNCP pelo link e leia os documentos (termo de referência, justificativa, notas).</li>
+        <li>Peça informações pela Lei de Acesso à Informação no e-SIC da Prefeitura. É gratuito e não precisa justificar.</li>
+        <li>Se a suspeita continuar, registre denúncia no <strong>Tribunal de Contas do Estado do Maranhão (TCE-MA)</strong>,
+          no <strong>Ministério Público do Maranhão (MP-MA)</strong> ou, se envolver verba federal, na
+          <a href="https://falabr.cgu.gov.br" target="_blank" rel="noopener">CGU (Fala.BR)</a>. Você também pode procurar os vereadores.</li>
+      </ol>
+      <p>Seja responsável: apresente os fatos e os documentos e evite acusar pessoas sem provas.</p>
+      <p class="nota" id="meta"></p>
+    </div>
+  </section>
+</main>
+
+<dialog id="modal"><button class="fechar" aria-label="Fechar">×</button><div id="modal-corpo"></div></dialog>
+
+<footer class="rodape">Projeto cidadão de código aberto · Dados públicos oficiais · Não é um site da Prefeitura de Açailândia</footer>
+</body>
+</html>
